@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="hero">
+  <h1>StreamerBot</h1>
+  <p class="subtitle">The all-in-one Discord bot for streamers — moderation, custom commands, stream alerts & more.</p>
+  <div class="hero-actions">
+    {% if user %}
+      <a href="/dashboard" class="btn btn-lg">Dashboard</a>
+      <a href="/commands" class="btn btn-lg btn-outline">Commands</a>
+    {% else %}
+      <a href="/login" class="btn btn-lg">Login with Discord</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="features">
+  <div class="feature-card">
+    <h3>Moderation</h3>
+    <p>Kick, ban, warn, timeout, purge messages — full control to keep your server clean.</p>
+  </div>
+  <div class="feature-card">
+    <h3>Custom Commands</h3>
+    <p>Create unlimited text commands from the dashboard. No coding needed.</p>
+  </div>
+  <div class="feature-card">
+    <h3>Stream Alerts</h3>
+    <p>One slash command pings everyone and announces your TikTok live.</p>
+  </div>
+  <div class="feature-card">
+    <h3>Web Dashboard</h3>
+    <p>Full web config panel — welcome messages, mod logs, custom commands, and more.</p>
+  </div>
+  <div class="feature-card">
+    <h3>Warning System</h3>
+    <p>Track warnings with reasons, view history, and remove warnings by ID.</p>
+  </div>
+  <div class="feature-card">
+    <h3>Free & Open</h3>
+    <p>Self-hosted on Railway free tier. Full source code, fully customizable.</p>
+  </div>
+</div>
+{% endblock %}

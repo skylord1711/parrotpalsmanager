@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}{{ guild.name }} Settings{% endblock %}
+{% block content %}
+<nav class="breadcrumb">
+  <a href="/dashboard">Servers</a> <span class="sep">/</span> {{ guild.name }}
+</nav>
+
+<div class="server-header">
+  {% if guild.icon %}
+    <img src="https://cdn.discordapp.com/icons/{{ guild.id }}/{{ guild.icon }}.png?size=64" class="si" alt="">
+  {% else %}
+    <div class="sip">{{ guild.name[0] }}</div>
+  {% endif %}
+  <div>
+    <h2>{{ guild.name }}</h2>
+    <span style="color:var(--text-muted);font-size:0.85rem;">Server settings</span>
+  </div>
+</div>
+
+<div class="tabs">
+  <a href="/dashboard/{{ guild.id }}" class="tab active">Settings</a>
+  <a href="/dashboard/{{ guild.id }}/moderation" class="tab">Moderation Log</a>
+  <a href="/dashboard/{{ guild.id }}/commands" class="tab">Custom Commands</a>
+</div>
+
+{% if request.query_params.get('saved') %}
+  <div class="alert alert-success">Settings saved successfully!</div>
+{% endif %}
+
+<div class="card">
+  <h3>General Settings</h3>
+  <form method="POST" action="/dashboard/{{ guild.id }}">
+    <div class="form-group">
+      <label>Command Prefix</label>
+      <input type="text" name="prefix" value="{{ settings.prefix }}" maxlength="3">
+      <small>Prefix for text commands (slash commands always work)</small>
+    </div>
+    <div class="form-group">
+      <label>TikTok Streamer URL</label>
+      <input type="text" name="tiktok_url" value="{{ settings.tiktok_url or '' }}" placeholder="https://www.tiktok.com/@yourhandle">
+      <small>Used in <code>/go-live</code> and <code>/socials</code> commands</small>
+    </div>
+    <hr>
+    <h4>Welcome Messages</h4>
+    <div class="form-group">
+      <label class="checkbox-label">
+        <input type="checkbox" name="welcome_enabled" {% if settings.welcome_enabled %}checked{% endif %}>
+        Enable welcome messages for new members
+      </label>
+    </div>
+    <div class="form-group">
+      <label>Welcome Channel ID</label>
+      <input type="text" name="welcome_channel" value="{{ settings.welcome_channel or '' }}" placeholder="Paste the channel ID here">
+      <small>Enable Developer Mode in Discord → Right-click channel → Copy ID</small>
+    </div>
+    <div class="form-group">
+      <label>Welcome Message</label>
+      <textarea name="welcome_message" rows="3" placeholder="Welcome {user} to {server}!">{{ settings.welcome_message or '' }}</textarea>
+      <small><code>{user}</code> = @mention &bull; <code>{server}</code> = server name</small>
+    </div>
+    <hr>
+    <h4>Moderation Logs</h4>
+    <div class="form-group">
+      <label>Mod Log Channel ID</label>
+      <input type="text" name="mod_log_channel" value="{{ settings.mod_log_channel or '' }}" placeholder="Channel ID for kick/ban/warn logs">
+      <small>Leave empty to disable mod logging</small>
+    </div>
+    <hr>
+    <h4>Danger Zone</h4>
+    <p style="color:var(--text-muted);font-size:0.88rem;margin-bottom:16px;">These actions are irreversible — use caution.</p>
+    {% if settings.welcome_enabled or settings.mod_log_channel or settings.welcome_channel %}
+      <form method="POST" action="/dashboard/{{ guild.id }}" style="display:inline">
+        <input type="hidden" name="prefix" value="{{ settings.prefix }}">
+        <input type="hidden" name="welcome_enabled" value="">
+        <input type="hidden" name="welcome_channel" value="">
+        <input type="hidden" name="welcome_message" value="">
+        <input type="hidden" name="mod_log_channel" value="">
+        <input type="hidden" name="tiktok_url" value="">
+        <button class="btn btn-danger btn-sm" onclick="return confirm('Reset all settings for this server?')">Reset All Settings</button>
+      </form>
+    {% endif %}
+    <button type="submit" class="btn" style="margin-top:10px;">Save Settings</button>
+  </form>
+</div>
+{% endblock %}

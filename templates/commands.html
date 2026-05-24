@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Commands{% endblock %}
+{% block content %}
+<h2 style="margin-bottom:8px;">Commands</h2>
+<p style="color:var(--text-muted);margin-bottom:32px;">All available slash commands for StreamerBot. Use <code style="background:rgba(0,0,0,0.3);padding:2px 8px;border-radius:4px;">/</code> in Discord to see them.</p>
+
+<div class="cmd-grid">
+  <div class="cmd-card">
+    <span class="cmd-category cat-stream">Stream</span>
+    <h4><code>/go-live</code></h4>
+    <div class="cmd-desc">Announce your TikTok stream to the server with an @everyone ping. Optional message field for what you're playing.</div>
+    <div class="cmd-details"><span>Usage: <code>/go-live [message]</code></span></div>
+  </div>
+
+  <div class="cmd-card">
+    <span class="cmd-category cat-stream">Social</span>
+    <h4><code>/socials</code></h4>
+    <div class="cmd-desc">Display the streamer's TikTok link in a clean embed.</div>
+  </div>
+
+  <div class="cmd-card">
+    <span class="cmd-category cat-util">Utility</span>
+    <h4><code>/ping</code></h4>
+    <div class="cmd-desc">Check the bot's current WebSocket latency in milliseconds.</div>
+    <div class="cmd-details"><span>Response: <code>Pong! 32ms</code></span></div>
+  </div>
+
+  <div class="cmd-card">
+    <span class="cmd-category cat-mod">Moderation</span>
+    <h4><code>/kick</code></h4>
+    <div class="cmd-desc">Kick a member from the server. Logs to the mod channel if configured. Requires <strong>Kick Members</strong> permission.</div>
+    <div class="cmd-details"><span>Usage: <code>/kick @user [reason]</code></span></div>
+  </div>
+
+  <div class="cmd-card">
+    <span class="cmd-category cat-mod">Moderation</span>
+    <h4><code>/ban</code></h4>
+    <div class="cmd-desc">Ban a member from the server. Logs to the mod channel. Requires <strong>Ban Members</strong> permission.</div>
+    <div class="cmd-details"><span>Usage: <code>/ban @user [reason]</code></span></div>
+  </div>
+
+  <div class="cmd-card">
+    <span class="cmd-category cat-mod">Moderation</span>
+    <h4><code>/warn</code></h4>
+    <div class="cmd-desc">Issue a warning to a member. DM's the user the reason. Tracks total warnings. Requires <strong>Moderate Members</strong> permission.</div>
+    <div class="cmd-details"><span>Usage: <code>/warn @user [reason]</code></span></div>
+  </div>
+
+  <div class="cmd-card">
+    <span class="cmd-category cat-mod">Moderation</span>
+    <h4><code>/warnings</code></h4>
+    <div class="cmd-desc">View all warnings for a specific member, with reason, moderator, and date.</div>
+    <div class="cmd-details"><span>Usage: <code>/warnings @user</code></span></div>
+  </div>
+
+  <div class="cmd-card">
+    <span class="cmd-category cat-mod">Moderation</span>
+    <h4><code>/unwarn</code></h4>
+    <div class="cmd-desc">Remove a specific warning by its ID number. Use <code>/warnings</code> to find the ID.</div>
+    <div class="cmd-details"><span>Usage: <code>/unwarn 3</code></span></div>
+  </div>
+
+  <div class="cmd-card">
+    <span class="cmd-category cat-mod">Moderation</span>
+    <h4><code>/clear</code></h4>
+    <div class="cmd-desc">Bulk delete recent messages in the current channel (max 100). Requires <strong>Manage Messages</strong> permission.</div>
+    <div class="cmd-details"><span>Usage: <code>/clear 20</code></span></div>
+  </div>
+
+  <div class="cmd-card">
+    <span class="cmd-category cat-mod">Moderation</span>
+    <h4><code>/slowmode</code></h4>
+    <div class="cmd-desc">Set the slowmode delay in seconds for the current channel. Set to 0 to disable. Requires <strong>Manage Channels</strong> permission.</div>
+    <div class="cmd-details"><span>Usage: <code>/slowmode 5</code></span></div>
+  </div>
+
+  <div class="cmd-card">
+    <span class="cmd-category cat-mod">Moderation</span>
+    <h4><code>/timeout</code></h4>
+    <div class="cmd-desc">Timeout (mute) a member for a specified number of minutes. Requires <strong>Moderate Members</strong> permission.</div>
+    <div class="cmd-details"><span>Usage: <code>/timeout @user 10 [reason]</code></span></div>
+  </div>
+
+  <div class="cmd-card">
+    <span class="cmd-category cat-util">Utility</span>
+    <h4><code>/commands</code></h4>
+    <div class="cmd-desc">List all available slash commands in Discord with a quick overview.</div>
+  </div>
+</div>
+{% endblock %}

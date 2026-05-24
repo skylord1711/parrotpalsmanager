@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}StreamerBot{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="/" class="nav-brand">StreamerBot</a>
+      <div class="nav-links">
+        <a href="/commands" class="btn btn-sm btn-outline">Commands</a>
+        {% if user %}
+          <span class="nav-user">
+            <img src="https://cdn.discordapp.com/avatars/{{ user.id }}/{{ user.avatar }}.png?size=32" class="avatar" alt="">
+            {{ user.global_name or user.username }}
+          </span>
+          <a href="/dashboard" class="btn btn-sm">Dashboard</a>
+          <a href="/logout" class="btn btn-sm btn-outline" style="border-color:#555;color:#888;">Logout</a>
+        {% else %}
+          <a href="/login" class="btn btn-sm">Login with Discord</a>
+        {% endif %}
+      </div>
+    </div>
+  </nav>
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h2 style="margin-bottom:8px;">Your Servers</h2>
+<p style="color:var(--text-muted);margin-bottom:24px;">Select a server to configure. Only servers where you're an admin are shown.</p>
+<div class="server-list">
+  {% for g in admin_guilds %}
+    <div class="server-card {% if g.id not in bot_guild_ids %}inactive{% endif %}">
+      <div class="server-info">
+        {% if g.icon %}
+          <img src="https://cdn.discordapp.com/icons/{{ g.id }}/{{ g.icon }}.png?size=64" class="server-icon" alt="">
+        {% else %}
+          <div class="server-icon-placeholder">{{ g.name[0] }}</div>
+        {% endif %}
+        <div>
+          <h3>{{ g.name }}</h3>
+          {% if g.id in bot_guild_ids %}
+            <span class="badge badge-green">Configure</span>
+          {% else %}
+            <span class="badge badge-red">Bot not in server</span>
+          {% endif %}
+        </div>
+      </div>
+      {% if g.id in bot_guild_ids %}
+        <a href="/dashboard/{{ g.id }}" class="btn">Settings</a>
+      {% else %}
+        <a href="https://discord.com/api/oauth2/authorize?client_id={{ user.id }}&permissions=8&scope=bot%20applications.commands" class="btn btn-outline" target="_blank">Invite Bot</a>
+      {% endif %}
+    </div>
+  {% endfor %}
+</div>
+{% endblock %}

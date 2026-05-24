@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}{{ guild.name }} Moderation{% endblock %}
+{% block content %}
+<nav class="breadcrumb">
+  <a href="/dashboard">Servers</a> <span class="sep">/</span>
+  <a href="/dashboard/{{ guild.id }}">{{ guild.name }}</a> <span class="sep">/</span>
+  Moderation Log
+</nav>
+
+<div class="tabs">
+  <a href="/dashboard/{{ guild.id }}" class="tab">Settings</a>
+  <a href="/dashboard/{{ guild.id }}/moderation" class="tab active">Moderation Log</a>
+  <a href="/dashboard/{{ guild.id }}/commands" class="tab">Custom Commands</a>
+</div>
+
+<div class="card">
+  <h3>Warning History</h3>
+  {% if warnings %}
+    <table class="table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>User ID</th>
+          <th>Moderator</th>
+          <th>Reason</th>
+          <th>Date</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for w in warnings %}
+          <tr>
+            <td>{{ w.id }}</td>
+            <td><code>{{ w.user_id }}</code></td>
+            <td><code>{{ w.moderator_id }}</code></td>
+            <td>{{ w.reason }}</td>
+            <td>{{ w.timestamp[:10] }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="muted">No warnings recorded. Your server is well-behaved!</p>
+  {% endif %}
+</div>
+{% endblock %}
