@@ -5,7 +5,7 @@
   },
   "deploy": {
     "startCommand": "python main.py",
-    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyType": "ALWAYS",
     "restartPolicyMaxRetries": 10
   }
 }

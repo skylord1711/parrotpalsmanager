@@ -24,7 +24,7 @@
       {% if g.id in bot_guild_ids %}
         <a href="/dashboard/{{ g.id }}" class="btn">Settings</a>
       {% else %}
-        <a href="https://discord.com/api/oauth2/authorize?client_id={{ user.id }}&permissions=8&scope=bot%20applications.commands" class="btn btn-outline" target="_blank">Invite Bot</a>
+        <a href="https://discord.com/api/oauth2/authorize?client_id={{ client_id }}&permissions=8&scope=bot%20applications.commands" class="btn btn-outline" target="_blank">Invite Bot</a>
       {% endif %}
     </div>
   {% endfor %}

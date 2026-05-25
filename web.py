@@ -9,6 +9,8 @@ from config import CLIENT_ID, CLIENT_SECRET, REDIRECT_URI
 from bot import bot
 import database
 
+from datetime import datetime
+
 app = FastAPI()
 
 import os
@@ -29,6 +31,15 @@ def render(name, **ctx):
 async def home(request: Request):
     user = get_user(request)
     return render("home.html", request=request, user=user, bot=bot)
+
+@app.get("/health")
+async def health():
+    return {
+        "status": "ok",
+        "timestamp": datetime.utcnow().isoformat(),
+        "guilds": len(bot.guilds) if bot.is_ready() else 0,
+        "bot_ready": bot.is_ready(),
+    }
 
 @app.get("/commands", response_class=HTMLResponse)
 async def commands_page(request: Request):
@@ -98,7 +109,7 @@ async def dashboard(request: Request):
         if perms & 0x20:
             admin_guilds.append(g)
     bot_guild_ids = set(str(g.id) for g in bot.guilds)
-    return render("dashboard.html", request=request, user=user, admin_guilds=admin_guilds, bot_guild_ids=bot_guild_ids)
+    return render("dashboard.html", request=request, user=user, admin_guilds=admin_guilds, bot_guild_ids=bot_guild_ids, client_id=CLIENT_ID)
 
 @app.get("/dashboard/{guild_id}", response_class=HTMLResponse)
 async def guild_settings(request: Request, guild_id: str):

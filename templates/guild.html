@@ -65,21 +65,21 @@
       <input type="text" name="mod_log_channel" value="{{ settings.mod_log_channel or '' }}" placeholder="Channel ID for kick/ban/warn logs">
       <small>Leave empty to disable mod logging</small>
     </div>
-    <hr>
-    <h4>Danger Zone</h4>
-    <p style="color:var(--text-muted);font-size:0.88rem;margin-bottom:16px;">These actions are irreversible — use caution.</p>
-    {% if settings.welcome_enabled or settings.mod_log_channel or settings.welcome_channel %}
-      <form method="POST" action="/dashboard/{{ guild.id }}" style="display:inline">
-        <input type="hidden" name="prefix" value="{{ settings.prefix }}">
-        <input type="hidden" name="welcome_enabled" value="">
-        <input type="hidden" name="welcome_channel" value="">
-        <input type="hidden" name="welcome_message" value="">
-        <input type="hidden" name="mod_log_channel" value="">
-        <input type="hidden" name="tiktok_url" value="">
-        <button class="btn btn-danger btn-sm" onclick="return confirm('Reset all settings for this server?')">Reset All Settings</button>
-      </form>
-    {% endif %}
     <button type="submit" class="btn" style="margin-top:10px;">Save Settings</button>
   </form>
+  <hr>
+  <h4>Danger Zone</h4>
+  <p style="color:var(--text-muted);font-size:0.88rem;margin-bottom:16px;">These actions are irreversible — use caution.</p>
+  {% if settings.welcome_enabled or settings.mod_log_channel or settings.welcome_channel %}
+    <form method="POST" action="/dashboard/{{ guild.id }}">
+      <input type="hidden" name="prefix" value="{{ settings.prefix }}">
+      <input type="hidden" name="welcome_enabled" value="">
+      <input type="hidden" name="welcome_channel" value="">
+      <input type="hidden" name="welcome_message" value="">
+      <input type="hidden" name="mod_log_channel" value="">
+      <input type="hidden" name="tiktok_url" value="">
+      <button class="btn btn-danger btn-sm" onclick="return confirm('Reset all settings for this server?')">Reset All Settings</button>
+    </form>
+  {% endif %}
 </div>
 {% endblock %}
