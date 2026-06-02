@@ -7,3 +7,5 @@ bot.db
 bot_*.txt
 .vercel
 .vercel_build_output/
+
+.vercel

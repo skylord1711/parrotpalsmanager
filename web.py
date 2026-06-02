@@ -36,7 +36,10 @@ def get_bot():
 
 def bot_is_ready():
     b = get_bot()
-    return b.is_ready() if b else False
+    try:
+        return b.is_ready() if b else False
+    except Exception:
+        return False
 
 def bot_guilds():
     b = get_bot()
@@ -48,7 +51,13 @@ def bot_get_guild(guild_id):
 
 def bot_latency():
     b = get_bot()
-    return round(b.latency * 1000) if b else 0
+    if b and b.is_ready():
+        try:
+            ms = b.latency * 1000
+            return round(ms) if not (ms != ms) else 0
+        except Exception:
+            return 0
+    return 0
 
 def bot_user():
     b = get_bot()
