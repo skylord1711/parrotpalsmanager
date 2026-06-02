@@ -361,3 +361,142 @@ async def get_user_guilds(request: Request):
         if session:
             return session.get("guilds", [])
     return []
+
+# ─── Ticket Dashboard Routes ──────────────────────────────
+
+@app.get("/dashboard/{guild_id}/tickets", response_class=HTMLResponse)
+async def guild_tickets(request: Request, guild_id: str):
+    user = await get_user(request)
+    if not user:
+        return RedirectResponse("/login")
+    guild = bot_get_guild(guild_id)
+    if not guild:
+        return HTMLResponse("Bot not in this server", status_code=404)
+    cfg = await database.get_ticket_config(guild_id)
+    if not cfg:
+        cfg = {
+            "guild_id": guild_id, "enabled": False,
+            "panel_channel_id": "", "panel_message_id": "",
+            "category_id": "", "closed_category_id": "",
+            "log_channel_id": "", "support_roles": [],
+            "ticket_number": 0, "panel_type": "buttons",
+            "close_confirmation": True, "archive_enabled": False,
+            "transcript_enabled": True, "dm_on_close": True,
+            "max_tickets_per_user": 5, "cooldown_seconds": 30,
+            "delete_seconds": 3, "panels": []
+        }
+    active_tickets = await database.get_guild_open_tickets(guild_id)
+    blacklist = await database.get_blacklist(guild_id)
+    return render("guild_tickets.html", request=request, user=user,
+        guild=guild, cfg=cfg, active_tickets=active_tickets, blacklist=blacklist,
+        bot_ready=bot_is_ready(), bot_latency=bot_latency(),
+        bot_user=bot_user(), bot_available=bot_available)
+
+@app.post("/dashboard/{guild_id}/tickets")
+async def save_ticket_settings(request: Request, guild_id: str):
+    user = await get_user(request)
+    if not user:
+        return RedirectResponse("/login")
+    form = await request.form()
+    import json
+
+    enabled = 1 if form.get("enabled") else 0
+    panel_type = form.get("panel_type", "buttons")
+    category_id = form.get("category_id", "")
+    closed_category_id = form.get("closed_category_id", "")
+    log_channel_id = form.get("log_channel_id", "")
+    close_confirmation = 1 if form.get("close_confirmation") else 0
+    archive_enabled = 1 if form.get("archive_enabled") else 0
+    transcript_enabled = 1 if form.get("transcript_enabled") else 0
+    dm_on_close = 1 if form.get("dm_on_close") else 0
+    max_tickets_per_user = int(form.get("max_tickets_per_user", 5))
+    cooldown_seconds = int(form.get("cooldown_seconds", 30))
+    delete_seconds = int(form.get("delete_seconds", 3))
+
+    support_roles_str = form.get("support_roles", "[]")
+    try:
+        support_roles = json.loads(support_roles_str) if support_roles_str else []
+    except:
+        support_roles = []
+
+    panels_str = form.get("panels", "[]")
+    try:
+        panels = json.loads(panels_str) if panels_str else []
+    except:
+        panels = []
+
+    await database.set_ticket_config(
+        guild_id,
+        enabled=enabled,
+        panel_type=panel_type,
+        category_id=category_id,
+        closed_category_id=closed_category_id,
+        log_channel_id=log_channel_id,
+        support_roles=json.dumps(support_roles),
+        close_confirmation=close_confirmation,
+        archive_enabled=archive_enabled,
+        transcript_enabled=transcript_enabled,
+        dm_on_close=dm_on_close,
+        max_tickets_per_user=max_tickets_per_user,
+        cooldown_seconds=cooldown_seconds,
+        delete_seconds=delete_seconds,
+        panels=json.dumps(panels)
+    )
+    return RedirectResponse(f"/dashboard/{guild_id}/tickets?saved=1", status_code=303)
+
+@app.post("/dashboard/{guild_id}/tickets/regenerate-panel")
+async def regenerate_ticket_panel(request: Request, guild_id: str):
+    user = await get_user(request)
+    if not user:
+        return RedirectResponse("/login")
+    guild = bot_get_guild(guild_id)
+    if guild:
+        bot_instance = get_bot()
+        if bot_instance and bot_instance.is_ready():
+            cog = bot_instance.get_cog("TicketSystem")
+            if cog:
+                cfg = await database.get_ticket_config(guild_id)
+                if cfg and cfg["enabled"] and cfg["panel_channel_id"]:
+                    channel = guild.get_channel(int(cfg["panel_channel_id"]))
+                    if channel:
+                        if cfg["panel_message_id"]:
+                            try:
+                                old_msg = await channel.fetch_message(int(cfg["panel_message_id"]))
+                                await old_msg.delete()
+                            except:
+                                pass
+                        from cogs.tickets import TicketButtonView, TicketSelectView
+                        import discord
+                        embed = discord.Embed(
+                            title="🎫 Create a Ticket",
+                            description="Click a button below to open a ticket. Our team will assist you shortly.",
+                            color=discord.Color.from_rgb(233, 69, 96)
+                        )
+                        if cfg["panel_type"] == "select":
+                            view = TicketSelectView(guild_id, cfg, bot_instance)
+                        else:
+                            view = TicketButtonView(guild_id, cfg, bot_instance)
+                        msg = await channel.send(embed=embed, view=view)
+                        await database.set_ticket_config(guild_id, panel_channel_id=str(channel.id), panel_message_id=str(msg.id))
+                        bot_instance.add_view(view, message_id=msg.id)
+    return RedirectResponse(f"/dashboard/{guild_id}/tickets?saved=1", status_code=303)
+
+@app.post("/dashboard/{guild_id}/tickets/blacklist/add")
+async def add_ticket_blacklist(request: Request, guild_id: str):
+    user = await get_user(request)
+    if not user:
+        return RedirectResponse("/login")
+    form = await request.form()
+    target_id = form.get("target_id", "").strip()
+    reason = form.get("reason", "").strip()
+    if target_id:
+        await database.add_blacklist(guild_id, target_id, "user", reason)
+    return RedirectResponse(f"/dashboard/{guild_id}/tickets?saved=1", status_code=303)
+
+@app.post("/dashboard/{guild_id}/tickets/blacklist/remove/{target_id}")
+async def remove_ticket_blacklist(request: Request, guild_id: str, target_id: str):
+    user = await get_user(request)
+    if not user:
+        return RedirectResponse("/login")
+    await database.remove_blacklist(guild_id, target_id)
+    return RedirectResponse(f"/dashboard/{guild_id}/tickets?saved=1", status_code=303)

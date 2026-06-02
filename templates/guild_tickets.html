@@ -1,0 +1,281 @@
+{% extends "base.html" %}
+{% block title %}{{ guild.name }} Tickets{% endblock %}
+{% block content %}
+<nav class="breadcrumb">
+  <a href="/dashboard">Servers</a> <span class="sep">›</span>
+  <a href="/dashboard/{{ guild.id }}">{{ guild.name }}</a> <span class="sep">›</span>
+  Tickets
+</nav>
+
+<div class="tabs">
+  <a href="/dashboard/{{ guild.id }}" class="tab">⚙️ Settings</a>
+  <a href="/dashboard/{{ guild.id }}/moderation" class="tab">📋 Moderation Log</a>
+  <a href="/dashboard/{{ guild.id }}/commands" class="tab">💬 Custom Commands</a>
+  <a href="/dashboard/{{ guild.id }}/tickets" class="tab active">🎫 Tickets</a>
+</div>
+
+<div class="card">
+  <h3>Ticket System Settings</h3>
+  <form method="POST" action="/dashboard/{{ guild.id }}/tickets">
+    <div class="form-group">
+      <label class="checkbox-label">
+        <input type="checkbox" name="enabled" {% if cfg.enabled %}checked{% endif %}>
+        Enable ticket system
+      </label>
+    </div>
+
+    <div class="form-group">
+      <label>Panel Type</label>
+      <select name="panel_type" style="padding:10px 14px;background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:0.9rem;max-width:300px;">
+        <option value="buttons" {% if cfg.panel_type == 'buttons' %}selected{% endif %}>Buttons</option>
+        <option value="select" {% if cfg.panel_type == 'select' %}selected{% endif %}>Select Menu</option>
+      </select>
+      <small>How users choose a ticket type from the panel</small>
+    </div>
+
+    <hr>
+    <h4>Channel Settings</h4>
+    <div class="form-group">
+      <label>Default Category ID (for ticket channels)</label>
+      <input type="text" name="category_id" value="{{ cfg.category_id or '' }}" placeholder="Category channel ID">
+      <small>Tickets will be created under this category. Right-click category → Copy ID</small>
+    </div>
+    <div class="form-group">
+      <label>Closed Category ID (for archived tickets)</label>
+      <input type="text" name="closed_category_id" value="{{ cfg.closed_category_id or '' }}" placeholder="Category ID for closed tickets">
+      <small>Leave empty if not using archive mode</small>
+    </div>
+    <div class="form-group">
+      <label>Log Channel ID</label>
+      <input type="text" name="log_channel_id" value="{{ cfg.log_channel_id or '' }}" placeholder="Channel ID for ticket logs">
+      <small>All ticket actions will be logged here</small>
+    </div>
+
+    <hr>
+    <h4>Support Roles</h4>
+    <div class="form-group">
+      <label>Support Role IDs (JSON array)</label>
+      <input type="text" name="support_roles" value='{{ cfg.support_roles | tojson if cfg.support_roles else "[]" }}' placeholder='["role_id_1", "role_id_2"]'>
+      <small>Roles that can view and manage tickets. Use JSON array format.</small>
+    </div>
+
+    <hr>
+    <h4>Limits & Cooldowns</h4>
+    <div class="form-group">
+      <label>Max Tickets Per User</label>
+      <input type="number" name="max_tickets_per_user" value="{{ cfg.max_tickets_per_user or 5 }}" min="1" max="50" style="max-width:120px;">
+    </div>
+    <div class="form-group">
+      <label>Cooldown (seconds)</label>
+      <input type="number" name="cooldown_seconds" value="{{ cfg.cooldown_seconds or 30 }}" min="0" max="3600" style="max-width:120px;">
+      <small>How long a user must wait before creating another ticket</small>
+    </div>
+    <div class="form-group">
+      <label>Delete Delay (seconds)</label>
+      <input type="number" name="delete_seconds" value="{{ cfg.delete_seconds or 3 }}" min="1" max="60" style="max-width:120px;">
+      <small>Seconds before the channel is deleted after closing</small>
+    </div>
+
+    <hr>
+    <h4>Features</h4>
+    <div class="form-group">
+      <label class="checkbox-label">
+        <input type="checkbox" name="close_confirmation" {% if cfg.close_confirmation %}checked{% endif %}>
+        Require close confirmation
+      </label>
+    </div>
+    <div class="form-group">
+      <label class="checkbox-label">
+        <input type="checkbox" name="archive_enabled" {% if cfg.archive_enabled %}checked{% endif %}>
+        Archive tickets on close (instead of deleting)
+      </label>
+    </div>
+    <div class="form-group">
+      <label class="checkbox-label">
+        <input type="checkbox" name="transcript_enabled" {% if cfg.transcript_enabled %}checked{% endif %}>
+        Generate transcripts on close
+      </label>
+    </div>
+    <div class="form-group">
+      <label class="checkbox-label">
+        <input type="checkbox" name="dm_on_close" {% if cfg.dm_on_close %}checked{% endif %}>
+        DM user transcript on close
+      </label>
+    </div>
+
+    <hr>
+    <h4>Ticket Categories</h4>
+    <p style="color:var(--text-muted);font-size:0.88rem;margin-bottom:16px;">
+      Configure up to 5 ticket types shown in the panel. Each category can have its own settings.
+    </p>
+    <div id="panels-editor">
+      {% set panels = cfg.panels or [] %}
+      {% for i in range(5) %}
+      {% set p = panels[i] if i < panels|length else {'enabled': false, 'label': '', 'emoji': '', 'style': 'Primary', 'category_id': '', 'channel_name_template': '', 'description': '', 'ticket_name': ''} %}
+      <div class="panel-entry" style="background:rgba(0,0,0,0.15);border-radius:12px;padding:16px;margin-bottom:12px;border:1px solid var(--border);">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+          <strong style="min-width:60px;color:var(--accent);">Panel {{ i+1 }}</strong>
+          <label class="checkbox-label" style="font-size:0.85rem;">
+            <input type="checkbox" class="panel-enabled" data-index="{{ i }}" {% if p.enabled %}checked{% endif %}>
+            Enabled
+          </label>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div>
+            <small style="color:var(--text-muted);">Label</small>
+            <input type="text" class="panel-label" data-index="{{ i }}" value="{{ p.label or '' }}" placeholder="Support" style="width:100%;padding:8px 10px;background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:8px;color:var(--text);margin-top:4px;">
+          </div>
+          <div>
+            <small style="color:var(--text-muted);">Ticket Name</small>
+            <input type="text" class="panel-ticket-name" data-index="{{ i }}" value="{{ p.ticket_name or '' }}" placeholder="Support" style="width:100%;padding:8px 10px;background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:8px;color:var(--text);margin-top:4px;">
+          </div>
+          <div>
+            <small style="color:var(--text-muted);">Emoji</small>
+            <input type="text" class="panel-emoji" data-index="{{ i }}" value="{{ p.emoji or '' }}" placeholder="🎫" style="width:100%;padding:8px 10px;background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:8px;color:var(--text);margin-top:4px;">
+          </div>
+          <div>
+            <small style="color:var(--text-muted);">Button Style</small>
+            <select class="panel-style" data-index="{{ i }}" style="width:100%;padding:8px 10px;background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:8px;color:var(--text);margin-top:4px;">
+              <option value="Primary" {% if p.style == 'Primary' %}selected{% endif %}>Primary (Blue)</option>
+              <option value="Secondary" {% if p.style == 'Secondary' %}selected{% endif %}>Secondary (Gray)</option>
+              <option value="Success" {% if p.style == 'Success' %}selected{% endif %}>Success (Green)</option>
+              <option value="Danger" {% if p.style == 'Danger' %}selected{% endif %}>Danger (Red)</option>
+            </select>
+          </div>
+          <div>
+            <small style="color:var(--text-muted);">Category ID (optional)</small>
+            <input type="text" class="panel-category" data-index="{{ i }}" value="{{ p.category_id or '' }}" placeholder="Leave empty for default" style="width:100%;padding:8px 10px;background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:8px;color:var(--text);margin-top:4px;">
+          </div>
+          <div>
+            <small style="color:var(--text-muted);">Channel Name Template</small>
+            <input type="text" class="panel-channel-name" data-index="{{ i }}" value="{{ p.channel_name_template or 'ticket-{username}' }}" placeholder="ticket-{username}" style="width:100%;padding:8px 10px;background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:8px;color:var(--text);margin-top:4px;">
+          </div>
+        </div>
+        <div style="margin-top:8px;">
+          <small style="color:var(--text-muted);">Description (for select menu)</small>
+          <input type="text" class="panel-description" data-index="{{ i }}" value="{{ p.description or '' }}" placeholder="Open a ticket" style="width:100%;padding:8px 10px;background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:8px;color:var(--text);margin-top:4px;">
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    <input type="hidden" name="panels" id="panels-json" value='{{ cfg.panels | tojson if cfg.panels else "[]" }}'>
+    <input type="hidden" name="support_roles" id="support-roles-json" value='{{ cfg.support_roles | tojson if cfg.support_roles else "[]" }}'>
+
+    <button type="submit" class="btn" style="margin-top:10px;">Save Settings</button>
+  </form>
+  {% if cfg.panel_channel_id and cfg.panel_message_id %}
+  <hr>
+  <form method="POST" action="/dashboard/{{ guild.id }}/tickets/regenerate-panel">
+    <h4>Panel Message</h4>
+    <p style="color:var(--text-muted);font-size:0.88rem;">
+      Panel channel: <code>{{ cfg.panel_channel_id }}</code> &mdash; Message: <code>{{ cfg.panel_message_id }}</code>
+    </p>
+    <button type="submit" class="btn btn-sm" style="background:var(--warning);">Regenerate Panel</button>
+  </form>
+  {% endif %}
+</div>
+
+{% if active_tickets %}
+<div class="card">
+  <h3>Active Tickets ({{ active_tickets|length }})</h3>
+  <div class="table-wrapper">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Channel</th>
+          <th>User</th>
+          <th>Type</th>
+          <th>#</th>
+          <th>Claimed</th>
+          <th>Created</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in active_tickets %}
+        <tr>
+          <td><code>#{{ t.channel_id[-4:] }}</code></td>
+          <td><code>{{ t.user_id }}</code></td>
+          <td>{{ t.ticket_type }}</td>
+          <td>#{{ t.ticket_number }}</td>
+          <td>{% if t.claimed_by %}<span class="badge badge-blue">Yes</span>{% else %}<span class="badge badge-red">No</span>{% endif %}</td>
+          <td class="cell-date">{{ t.created_at[:10] if t.created_at else 'N/A' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<div class="card">
+  <h3>Blacklisted Users</h3>
+  {% if blacklist %}
+  <div class="table-wrapper">
+    <table class="table">
+      <thead>
+        <tr><th>User ID</th><th>Reason</th><th>Action</th></tr>
+      </thead>
+      <tbody>
+        {% for b in blacklist %}
+        <tr>
+          <td><code>{{ b.target_id }}</code></td>
+          <td>{{ b.reason or '—' }}</td>
+          <td>
+            <form method="POST" action="/dashboard/{{ guild.id }}/tickets/blacklist/remove/{{ b.target_id }}" onsubmit="return confirm('Remove this user from blacklist?')">
+              <button class="btn btn-danger btn-sm">Remove</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p style="color:var(--text-muted);font-size:0.9rem;">No blacklisted users.</p>
+  {% endif %}
+  <hr>
+  <h4>Add to Blacklist</h4>
+  <form method="POST" action="/dashboard/{{ guild.id }}/tickets/blacklist/add" class="form-inline">
+    <input type="text" name="target_id" placeholder="User ID" class="input-wide" required>
+    <input type="text" name="reason" placeholder="Reason (optional)" class="input-wide">
+    <button type="submit" class="btn btn-sm btn-danger">Blacklist</button>
+  </form>
+</div>
+
+<script>
+(function() {
+  var panelEnabled = document.querySelectorAll('.panel-enabled');
+  var panelLabel = document.querySelectorAll('.panel-label');
+  var panelTicketName = document.querySelectorAll('.panel-ticket-name');
+  var panelEmoji = document.querySelectorAll('.panel-emoji');
+  var panelStyle = document.querySelectorAll('.panel-style');
+  var panelCategory = document.querySelectorAll('.panel-category');
+  var panelChannelName = document.querySelectorAll('.panel-channel-name');
+  var panelDescription = document.querySelectorAll('.panel-description');
+  var panelsJson = document.getElementById('panels-json');
+
+  function buildPanels() {
+    var panels = [];
+    for (var i = 0; i < 5; i++) {
+      panels.push({
+        enabled: panelEnabled[i].checked,
+        label: panelLabel[i].value,
+        ticket_name: panelTicketName[i].value,
+        emoji: panelEmoji[i].value,
+        style: panelStyle[i].value,
+        category_id: panelCategory[i].value,
+        channel_name_template: panelChannelName[i].value,
+        description: panelDescription[i].value
+      });
+    }
+    panelsJson.value = JSON.stringify(panels);
+  }
+
+  document.querySelectorAll('#panels-editor input, #panels-editor select').forEach(function(el) {
+    el.addEventListener('change', buildPanels);
+    el.addEventListener('input', buildPanels);
+  });
+  buildPanels();
+})();
+</script>
+{% endblock %}

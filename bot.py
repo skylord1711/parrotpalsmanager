@@ -12,6 +12,9 @@ intents.moderation = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
+async def load_cogs():
+    await bot.load_extension("cogs.tickets")
+
 async def get_tiktok_url(guild_id: str) -> str:
     guild_data = await database.get_guild(guild_id)
     if guild_data and guild_data.get("tiktok_url"):
@@ -21,6 +24,7 @@ async def get_tiktok_url(guild_id: str) -> str:
 @bot.event
 async def on_ready():
     print(f"{bot.user} is online in {len(bot.guilds)} servers")
+    await load_cogs()
     for guild in bot.guilds:
         db_guild = await database.get_guild(str(guild.id))
         if not db_guild:
