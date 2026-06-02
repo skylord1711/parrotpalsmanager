@@ -34,6 +34,14 @@ async def setup():
             name TEXT,
             response TEXT
         );
+
+        CREATE TABLE IF NOT EXISTS sessions (
+            token TEXT PRIMARY KEY,
+            user_data TEXT,
+            guilds TEXT,
+            access_token TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
     """)
     await db.commit()
     await db.close()
@@ -118,6 +126,42 @@ async def get_commands(guild_id: str):
 async def delete_command(cmd_id: int, guild_id: str):
     db = await get_db()
     await db.execute("DELETE FROM custom_commands WHERE id = ? AND guild_id = ?", (cmd_id, guild_id))
+    await db.commit()
+    await db.close()
+
+async def save_session(session_token: str, user_data: dict, guilds: list, access_token: str):
+    import json
+    db = await get_db()
+    await db.execute(
+        "INSERT OR REPLACE INTO sessions (token, user_data, guilds, access_token, created_at) VALUES (?, ?, ?, ?, datetime('now'))",
+        (session_token, json.dumps(user_data), json.dumps(guilds), access_token)
+    )
+    await db.commit()
+    await db.close()
+
+async def get_session(session_token: str):
+    import json
+    db = await get_db()
+    cursor = await db.execute("SELECT user_data, guilds, access_token FROM sessions WHERE token = ?", (session_token,))
+    row = await cursor.fetchone()
+    await db.close()
+    if row:
+        return {
+            "user": json.loads(row[0]),
+            "guilds": json.loads(row[1]),
+            "token": row[2]
+        }
+    return None
+
+async def delete_session(session_token: str):
+    db = await get_db()
+    await db.execute("DELETE FROM sessions WHERE token = ?", (session_token,))
+    await db.commit()
+    await db.close()
+
+async def cleanup_sessions():
+    db = await get_db()
+    await db.execute("DELETE FROM sessions WHERE created_at < datetime('now', '-1 day')")
     await db.commit()
     await db.close()
 

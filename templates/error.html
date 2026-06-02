@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Error{% endblock %}
+{% block content %}
+<div class="card error-card" style="max-width:500px;margin:80px auto;text-align:center;">
+  <div class="error-icon" style="font-size:4rem;margin-bottom:16px;">
+    {% if status == 404 %}🔍{% elif status == 400 %}⚠️{% else %}💔{% endif %}
+  </div>
+  <h2 style="margin-bottom:8px;">{{ title }}</h2>
+  <p style="color:var(--text-muted);margin-bottom:24px;line-height:1.6;">{{ message }}</p>
+  <a href="/" class="btn">Go Home</a>
+  <a href="javascript:history.back()" class="btn btn-outline" style="margin-left:8px;">Go Back</a>
+</div>
+{% endblock %}

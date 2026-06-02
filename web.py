@@ -1,7 +1,11 @@
 import secrets
+import hashlib
+import hmac
 from fastapi import FastAPI, Request, HTTPException, Response
 from fastapi.responses import RedirectResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.exception_handlers import http_exception_handler
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from jinja2 import Environment, FileSystemLoader
 import httpx
 from config import CLIENT_ID, CLIENT_SECRET, REDIRECT_URI
@@ -18,9 +22,36 @@ static_dir = os.path.join(os.path.dirname(__file__), "static")
 env = Environment(loader=FileSystemLoader(template_dir))
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
-sessions = {}
+SIGNING_KEY = secrets.token_hex(32)
 
 DISCORD_API = "https://discord.com/api/v10"
+
+def make_signed_cookie(data: str) -> str:
+    sig = hmac.new(SIGNING_KEY.encode(), data.encode(), hashlib.sha256).hexdigest()
+    return f"{data}.{sig}"
+
+def verify_signed_cookie(signed: str) -> str | None:
+    try:
+        data, sig = signed.rsplit(".", 1)
+        expected = hmac.new(SIGNING_KEY.encode(), data.encode(), hashlib.sha256).hexdigest()
+        if hmac.compare_digest(sig, expected):
+            return data
+    except Exception:
+        pass
+    return None
+
+async def render_error(request: Request, title: str, message: str, status: int = 400):
+    user = await get_user(request)
+    t = env.get_template("error.html")
+    return HTMLResponse(t.render(request=request, user=user, title=title, message=message, status=status), status_code=status)
+
+@app.exception_handler(StarletteHTTPException)
+async def custom_http_handler(request: Request, exc: StarletteHTTPException):
+    if exc.status_code == 404:
+        return await render_error(request, "404 - Not Found", "The page you're looking for doesn't exist.", 404)
+    if exc.status_code == 400:
+        return await render_error(request, "400 - Bad Request", str(exc.detail) if exc.detail else "Invalid request.", 400)
+    return await http_exception_handler(request, exc)
 
 bot_available = False
 bot_instance = None
@@ -76,9 +107,17 @@ def render(name, **ctx):
     t = env.get_template(name)
     return HTMLResponse(t.render(**ctx))
 
+@app.on_event("startup")
+async def startup():
+    try:
+        await database.setup()
+        await database.cleanup_sessions()
+    except Exception:
+        pass
+
 @app.get("/")
 async def home(request: Request):
-    user = get_user(request)
+    user = await get_user(request)
     guild_count = len(bot_guilds())
     member_count = bot_total_members()
     return render("home.html",
@@ -114,16 +153,16 @@ async def api_status():
 
 @app.get("/commands", response_class=HTMLResponse)
 async def commands_page(request: Request):
-    user = get_user(request)
+    user = await get_user(request)
     return render("commands.html", request=request, user=user,
         bot_ready=bot_is_ready(), bot_latency=bot_latency(),
         bot_user=bot_user(), bot_available=bot_available)
 
 @app.get("/login")
-async def login():
+async def login(response: Response):
     state = secrets.token_urlsafe(16)
-    sessions[state] = {}
-    url = (
+    signed = make_signed_cookie(state)
+    response = RedirectResponse(
         f"{DISCORD_API}/oauth2/authorize"
         f"?client_id={CLIENT_ID}"
         f"&redirect_uri={REDIRECT_URI}"
@@ -131,13 +170,18 @@ async def login():
         f"&scope=identify+guilds"
         f"&state={state}"
     )
-    return RedirectResponse(url)
+    response.set_cookie(key="oauth_state", value=signed, httponly=True, max_age=300, path="/")
+    return response
 
 @app.get("/callback")
-async def callback(code: str, state: str, response: Response):
-    if state not in sessions:
-        raise HTTPException(400, "Invalid state")
-    del sessions[state]
+async def callback(code: str, state: str, request: Request):
+    stored = request.cookies.get("oauth_state")
+    if not stored:
+        return await render_error(request, "Login Expired", "Your login session expired. Please try logging in again.", 400)
+    decoded = verify_signed_cookie(stored)
+    if not decoded or decoded != state:
+        return await render_error(request, "Login Failed", "Security check failed. This can happen if you logged in from a different browser or session. Please try again.", 400)
+
     async with httpx.AsyncClient() as client:
         token_resp = await client.post(
             f"{DISCORD_API}/oauth2/token",
@@ -152,7 +196,7 @@ async def callback(code: str, state: str, response: Response):
         )
         token_data = token_resp.json()
         if "access_token" not in token_data:
-            raise HTTPException(400, "Failed to get token")
+            return await render_error(request, "Login Failed", "Discord did not return a valid token. Please try again.", 400)
         user_resp = await client.get(
             f"{DISCORD_API}/users/@me",
             headers={"Authorization": f"Bearer {token_data['access_token']}"}
@@ -165,17 +209,19 @@ async def callback(code: str, state: str, response: Response):
         guilds = guilds_resp.json()
 
     session_token = secrets.token_urlsafe(32)
-    sessions[session_token] = {"user": user_data, "guilds": guilds, "token": token_data["access_token"]}
+    await database.save_session(session_token, user_data, guilds, token_data["access_token"])
+
     response = RedirectResponse(url="/dashboard", status_code=303)
     response.set_cookie(key="session", value=session_token, httponly=True, max_age=86400)
+    response.delete_cookie("oauth_state", path="/")
     return response
 
 @app.get("/dashboard", response_class=HTMLResponse)
 async def dashboard(request: Request):
-    user = get_user(request)
+    user = await get_user(request)
     if not user:
         return RedirectResponse("/login")
-    guilds = get_user_guilds(request)
+    guilds = await get_user_guilds(request)
     admin_guilds = []
     for g in guilds:
         perms = int(g.get("permissions", 0))
@@ -190,7 +236,7 @@ async def dashboard(request: Request):
 
 @app.get("/dashboard/{guild_id}", response_class=HTMLResponse)
 async def guild_settings(request: Request, guild_id: str):
-    user = get_user(request)
+    user = await get_user(request)
     if not user:
         return RedirectResponse("/login")
     guild = bot_get_guild(guild_id)
@@ -209,7 +255,7 @@ async def guild_settings(request: Request, guild_id: str):
 
 @app.post("/dashboard/{guild_id}")
 async def save_settings(request: Request, guild_id: str):
-    user = get_user(request)
+    user = await get_user(request)
     if not user:
         return RedirectResponse("/login")
     form = await request.form()
@@ -232,7 +278,7 @@ async def save_settings(request: Request, guild_id: str):
 
 @app.get("/dashboard/{guild_id}/moderation", response_class=HTMLResponse)
 async def guild_moderation(request: Request, guild_id: str):
-    user = get_user(request)
+    user = await get_user(request)
     if not user:
         return RedirectResponse("/login")
     guild = bot_get_guild(guild_id)
@@ -246,7 +292,7 @@ async def guild_moderation(request: Request, guild_id: str):
 
 @app.get("/dashboard/{guild_id}/commands", response_class=HTMLResponse)
 async def guild_commands(request: Request, guild_id: str):
-    user = get_user(request)
+    user = await get_user(request)
     if not user:
         return RedirectResponse("/login")
     guild = bot_get_guild(guild_id)
@@ -260,7 +306,7 @@ async def guild_commands(request: Request, guild_id: str):
 
 @app.post("/dashboard/{guild_id}/commands/add")
 async def add_command(request: Request, guild_id: str):
-    user = get_user(request)
+    user = await get_user(request)
     if not user:
         return RedirectResponse("/login")
     form = await request.form()
@@ -272,21 +318,24 @@ async def add_command(request: Request, guild_id: str):
 
 @app.post("/dashboard/{guild_id}/commands/delete/{cmd_id}")
 async def delete_command(request: Request, guild_id: str, cmd_id: int):
-    user = get_user(request)
+    user = await get_user(request)
     if not user:
         return RedirectResponse("/login")
     await database.delete_command(cmd_id, guild_id)
     return RedirectResponse(f"/dashboard/{guild_id}/commands", status_code=303)
 
 @app.get("/logout")
-async def logout(response: Response):
+async def logout(request: Request, response: Response):
+    session_token = request.cookies.get("session")
+    if session_token:
+        await database.delete_session(session_token)
     response = RedirectResponse("/")
     response.delete_cookie("session")
     return response
 
 @app.get("/stats", response_class=HTMLResponse)
 async def stats_page(request: Request):
-    user = get_user(request)
+    user = await get_user(request)
     guild_count = len(bot_guilds())
     member_count = bot_total_members()
     guilds_list = bot_guilds()
@@ -297,14 +346,18 @@ async def stats_page(request: Request):
         bot_latency=bot_latency(), bot_user=bot_user(),
         bot_available=bot_available)
 
-def get_user(request: Request):
+async def get_user(request: Request):
     session_token = request.cookies.get("session")
-    if session_token and session_token in sessions:
-        return sessions[session_token]["user"]
+    if session_token:
+        session = await database.get_session(session_token)
+        if session:
+            return session["user"]
     return None
 
-def get_user_guilds(request: Request):
+async def get_user_guilds(request: Request):
     session_token = request.cookies.get("session")
-    if session_token and session_token in sessions:
-        return sessions[session_token].get("guilds", [])
+    if session_token:
+        session = await database.get_session(session_token)
+        if session:
+            return session.get("guilds", [])
     return []
