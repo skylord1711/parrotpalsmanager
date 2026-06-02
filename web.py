@@ -146,19 +146,19 @@ async def debug():
     b = get_bot()
     if not b:
         return {"error": "bot not available"}
-    info = {
+    cmd_names = []
+    if hasattr(b, 'tree') and b.tree:
+        try:
+            for cmd in b.tree._commands.values():
+                cmd_names.append(getattr(cmd, 'name', str(cmd)))
+        except:
+            pass
+    return {
         "ready": b.is_ready() if hasattr(b, 'is_ready') else False,
         "extensions": list(b.extensions.keys()) if hasattr(b, 'extensions') else [],
         "cogs": list(b.cogs.keys()) if hasattr(b, 'cogs') else [],
-        "tree_commands": [],
+        "tree_commands": cmd_names,
     }
-    if hasattr(b, 'tree') and b.tree:
-        for cmd in b.tree._commands.values():
-            info["tree_commands"].append(cmd.name)
-        for ns in b.tree._namespace_commands.values():
-            for cmd in ns.values():
-                info["tree_commands"].append(cmd.name)
-    return info
 
 @app.get("/api/status")
 async def api_status():
