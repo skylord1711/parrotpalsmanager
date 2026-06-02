@@ -13,7 +13,14 @@ intents.moderation = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 async def load_cogs():
-    await bot.load_extension("cogs.tickets")
+    try:
+        if "cogs.tickets" in bot.extensions:
+            await bot.reload_extension("cogs.tickets")
+        else:
+            await bot.load_extension("cogs.tickets")
+        print("Loaded cogs.tickets")
+    except Exception as e:
+        print(f"Failed to load cogs.tickets: {e}")
 
 async def get_tiktok_url(guild_id: str) -> str:
     guild_data = await database.get_guild(guild_id)
