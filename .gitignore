@@ -5,3 +5,5 @@ bot.db
 .idea/
 *.log
 bot_*.txt
+.vercel
+.vercel_build_output/

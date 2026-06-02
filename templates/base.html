@@ -3,16 +3,28 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{% block title %}StreamerBot{% endblock %}</title>
+  <title>{% block title %}ParrotPalsBot{% endblock %}</title>
   <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦜</text></svg>">
 </head>
 <body>
   <nav class="nav">
     <div class="nav-inner">
-      <a href="/" class="nav-brand">StreamerBot</a>
+      <a href="/" class="nav-brand">
+        <span class="brand-icon">🦜</span>
+        <span class="brand-text">ParrotPals</span>
+      </a>
       <div class="nav-links">
         <a href="/commands" class="btn btn-sm btn-outline">Commands</a>
+        {% if bot_available and bot_ready %}
+          <a href="/stats" class="btn btn-sm btn-outline">Stats</a>
+        {% endif %}
         {% if user %}
+          {% if bot_available %}
+            <span class="status-dot {% if bot_ready %}online{% else %}offline{% endif %}" title="Bot {% if bot_ready %}online{% else %}offline{% endif %}">
+              <span class="status-pulse"></span>
+            </span>
+          {% endif %}
           <span class="nav-user">
             <img src="https://cdn.discordapp.com/avatars/{{ user.id }}/{{ user.avatar }}.png?size=32" class="avatar" alt="">
             {{ user.global_name or user.username }}
@@ -25,8 +37,52 @@
       </div>
     </div>
   </nav>
+
+  <div id="toast" class="toast"></div>
+
   <main class="container">
     {% block content %}{% endblock %}
   </main>
+
+  {% if request.query_params.get('saved') %}
+  <script>
+    (function(){
+      var t = document.getElementById('toast');
+      t.textContent = 'Settings saved successfully!';
+      t.className = 'toast show toast-success';
+      setTimeout(function(){ t.className = 'toast'; }, 3500);
+    })();
+  </script>
+  {% endif %}
+
+  <script>
+    var statusDot = document.querySelector('.status-dot');
+    if (statusDot) {
+      setInterval(function(){
+        fetch('/api/status').then(function(r){ return r.json(); }).then(function(d){
+          var dot = document.querySelector('.status-dot');
+          if (dot) {
+            dot.className = 'status-dot ' + (d.ready ? 'online' : 'offline');
+            dot.title = d.ready ? 'Bot online - ' + d.latency + 'ms' : 'Bot offline';
+          }
+        }).catch(function(){});
+      }, 15000);
+    }
+
+    document.addEventListener('click', function(e){
+      var btn = e.target.closest('[data-copy]');
+      if (btn) {
+        var text = btn.getAttribute('data-copy');
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(text).then(function(){
+            var orig = btn.innerHTML;
+            btn.innerHTML = 'Copied!';
+            btn.classList.add('copied');
+            setTimeout(function(){ btn.innerHTML = orig; btn.classList.remove('copied'); }, 2000);
+          });
+        }
+      }
+    });
+  </script>
 </body>
 </html>

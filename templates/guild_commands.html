@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}{{ guild.name }} Commands{% endblock %}
+{% block content %}
+<nav class="breadcrumb">
+  <a href="/dashboard">Servers</a> <span class="sep">›</span>
+  <a href="/dashboard/{{ guild.id }}">{{ guild.name }}</a> <span class="sep">›</span>
+  Custom Commands
+</nav>
+
+<div class="tabs">
+  <a href="/dashboard/{{ guild.id }}" class="tab">⚙️ Settings</a>
+  <a href="/dashboard/{{ guild.id }}/moderation" class="tab">📋 Moderation Log</a>
+  <a href="/dashboard/{{ guild.id }}/commands" class="tab active">💬 Custom Commands</a>
+</div>
+
+<div class="card">
+  <h3>Add Custom Command</h3>
+  <form method="POST" action="/dashboard/{{ guild.id }}/commands/add" class="form-inline">
+    <input type="text" name="name" placeholder="Command name (no prefix)" class="input-wide" required>
+    <input type="text" name="response" placeholder="Response text" class="input-wide" required>
+    <button type="submit" class="btn btn-sm">Add Command</button>
+  </form>
+</div>
+
+<div class="card">
+  <h3>Existing Commands</h3>
+  {% if commands %}
+    <div class="table-wrapper">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Response</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for cmd in commands %}
+            <tr>
+              <td><code>{{ cmd.name }}</code></td>
+              <td class="cell-reason">{{ cmd.response }}</td>
+              <td>
+                <form method="POST" action="/dashboard/{{ guild.id }}/commands/delete/{{ cmd.id }}" onsubmit="return confirm('Delete this command?')">
+                  <button class="btn btn-danger btn-sm">Delete</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state">
+      <div class="empty-icon">💬</div>
+      <h3>No Custom Commands</h3>
+      <p>Add your first custom command above! Users can type <code>!commandname</code> in your server.</p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

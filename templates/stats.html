@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}Bot Stats{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h2>Bot Statistics</h2>
+    <p class="page-subtitle">Live stats and performance metrics for ParrotPals Bot</p>
+  </div>
+</div>
+
+<div class="stats-grid">
+  <div class="stat-card large">
+    <div class="stat-icon">🖥️</div>
+    <div class="stat-body">
+      <span class="stat-value">{{ guild_count }}</span>
+      <span class="stat-label">Servers</span>
+    </div>
+  </div>
+  <div class="stat-card large">
+    <div class="stat-icon">👥</div>
+    <div class="stat-body">
+      <span class="stat-value">{{ member_count }}</span>
+      <span class="stat-label">Total Members</span>
+    </div>
+  </div>
+  <div class="stat-card large">
+    <div class="stat-icon">⚡</div>
+    <div class="stat-body">
+      <span class="stat-value">{{ bot_latency }}ms</span>
+      <span class="stat-label">Latency</span>
+    </div>
+  </div>
+  <div class="stat-card large">
+    <div class="stat-icon">🤖</div>
+    <div class="stat-body">
+      <span class="stat-value">{% if bot_user %}{{ bot_user.name }}{% else %}N/A{% endif %}</span>
+      <span class="stat-label">Bot Name</span>
+    </div>
+  </div>
+</div>
+
+{% if top_guilds %}
+<div class="card" style="margin-top:24px;">
+  <h3>Top Servers by Member Count</h3>
+  <div class="table-wrapper">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Server</th>
+          <th>Members</th>
+          <th>Owner</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for g in top_guilds %}
+          <tr>
+            <td>{{ loop.index }}</td>
+            <td>
+              <div class="server-mini">
+                {% if g.icon %}
+                  <img src="https://cdn.discordapp.com/icons/{{ g.id }}/{{ g.icon }}.png?size=32" class="server-mini-icon" alt="">
+                {% else %}
+                  <div class="server-mini-placeholder">{{ g.name[0] }}</div>
+                {% endif %}
+                <span>{{ g.name }}</span>
+              </div>
+            </td>
+            <td>{{ g.member_count }}</td>
+            <td><code>{{ g.owner_id }}</code></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<div class="card" style="margin-top:24px;">
+  <h3>Commands Overview</h3>
+  <div class="cmd-features">
+    <div class="cmd-feature">
+      <span class="cmd-feature-icon">🛡️</span>
+      <span class="cmd-feature-label">Moderation</span>
+      <span class="cmd-feature-count">6 commands</span>
+    </div>
+    <div class="cmd-feature">
+      <span class="cmd-feature-icon">🔴</span>
+      <span class="cmd-feature-label">Stream</span>
+      <span class="cmd-feature-count">2 commands</span>
+    </div>
+    <div class="cmd-feature">
+      <span class="cmd-feature-icon">⚡</span>
+      <span class="cmd-feature-label">Utility</span>
+      <span class="cmd-feature-count">4 commands</span>
+    </div>
+    <div class="cmd-feature">
+      <span class="cmd-feature-icon">💬</span>
+      <span class="cmd-feature-label">Custom</span>
+      <span class="cmd-feature-count">Unlimited</span>
+    </div>
+  </div>
+</div>
+{% endblock %}

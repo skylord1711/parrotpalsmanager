@@ -2,44 +2,73 @@
 {% block title %}{{ guild.name }} Moderation{% endblock %}
 {% block content %}
 <nav class="breadcrumb">
-  <a href="/dashboard">Servers</a> <span class="sep">/</span>
-  <a href="/dashboard/{{ guild.id }}">{{ guild.name }}</a> <span class="sep">/</span>
+  <a href="/dashboard">Servers</a> <span class="sep">›</span>
+  <a href="/dashboard/{{ guild.id }}">{{ guild.name }}</a> <span class="sep">›</span>
   Moderation Log
 </nav>
 
 <div class="tabs">
-  <a href="/dashboard/{{ guild.id }}" class="tab">Settings</a>
-  <a href="/dashboard/{{ guild.id }}/moderation" class="tab active">Moderation Log</a>
-  <a href="/dashboard/{{ guild.id }}/commands" class="tab">Custom Commands</a>
+  <a href="/dashboard/{{ guild.id }}" class="tab">⚙️ Settings</a>
+  <a href="/dashboard/{{ guild.id }}/moderation" class="tab active">📋 Moderation Log</a>
+  <a href="/dashboard/{{ guild.id }}/commands" class="tab">💬 Custom Commands</a>
 </div>
 
 <div class="card">
-  <h3>Warning History</h3>
+  <div class="mod-header">
+    <h3>Warning History</h3>
+    <div class="mod-controls">
+      <input type="text" id="modSearch" class="search-input" placeholder="Search user ID or reason..." oninput="filterModLog(this.value)">
+      <span class="mod-count">{{ warnings|length }} total</span>
+    </div>
+  </div>
   {% if warnings %}
-    <table class="table">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>User ID</th>
-          <th>Moderator</th>
-          <th>Reason</th>
-          <th>Date</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for w in warnings %}
+    <div class="table-wrapper">
+      <table class="table" id="modTable">
+        <thead>
           <tr>
-            <td>{{ w.id }}</td>
-            <td><code>{{ w.user_id }}</code></td>
-            <td><code>{{ w.moderator_id }}</code></td>
-            <td>{{ w.reason }}</td>
-            <td>{{ w.timestamp[:10] }}</td>
+            <th>#</th>
+            <th>User ID</th>
+            <th>Moderator</th>
+            <th>Reason</th>
+            <th>Date</th>
           </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {% for w in warnings %}
+            <tr class="mod-row">
+              <td class="cell-id">{{ w.id }}</td>
+              <td>
+                <code class="copy-cell">{{ w.user_id }}</code>
+                <button class="copy-btn" data-copy="{{ w.user_id }}" title="Copy user ID">📋</button>
+              </td>
+              <td>
+                <code class="copy-cell">{{ w.moderator_id }}</code>
+                <button class="copy-btn" data-copy="{{ w.moderator_id }}" title="Copy moderator ID">📋</button>
+              </td>
+              <td class="cell-reason">{{ w.reason }}</td>
+              <td class="cell-date" title="{{ w.timestamp }}">{{ w.timestamp[:10] }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   {% else %}
-    <p class="muted">No warnings recorded. Your server is well-behaved!</p>
+    <div class="empty-state">
+      <div class="empty-icon">🛡️</div>
+      <h3>No Warnings</h3>
+      <p>Your server is well-behaved! No warnings have been issued.</p>
+    </div>
   {% endif %}
 </div>
+
+<script>
+  function filterModLog(q) {
+    var rows = document.querySelectorAll('.mod-row');
+    q = q.toLowerCase();
+    rows.forEach(function(r){
+      var text = r.textContent.toLowerCase();
+      r.style.display = text.includes(q) ? '' : 'none';
+    });
+  }
+</script>
 {% endblock %}

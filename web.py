@@ -1,15 +1,14 @@
 import secrets
 from fastapi import FastAPI, Request, HTTPException, Response
-from fastapi.responses import RedirectResponse, HTMLResponse
+from fastapi.responses import RedirectResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from jinja2 import Environment, FileSystemLoader
 import httpx
 from config import CLIENT_ID, CLIENT_SECRET, REDIRECT_URI
 
-from bot import bot
 import database
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 app = FastAPI()
 
@@ -23,6 +22,47 @@ sessions = {}
 
 DISCORD_API = "https://discord.com/api/v10"
 
+bot_available = False
+bot_instance = None
+try:
+    from bot import bot as discord_bot
+    bot_instance = discord_bot
+    bot_available = True
+except Exception:
+    pass
+
+def get_bot():
+    return bot_instance
+
+def bot_is_ready():
+    b = get_bot()
+    return b.is_ready() if b else False
+
+def bot_guilds():
+    b = get_bot()
+    return list(b.guilds) if b else []
+
+def bot_get_guild(guild_id):
+    b = get_bot()
+    return b.get_guild(int(guild_id)) if b else None
+
+def bot_latency():
+    b = get_bot()
+    return round(b.latency * 1000) if b else 0
+
+def bot_user():
+    b = get_bot()
+    return b.user if b else None
+
+def bot_total_members():
+    total = 0
+    for g in bot_guilds():
+        try:
+            total += g.member_count
+        except Exception:
+            pass
+    return total
+
 def render(name, **ctx):
     t = env.get_template(name)
     return HTMLResponse(t.render(**ctx))
@@ -30,21 +70,45 @@ def render(name, **ctx):
 @app.get("/")
 async def home(request: Request):
     user = get_user(request)
-    return render("home.html", request=request, user=user, bot=bot)
+    guild_count = len(bot_guilds())
+    member_count = bot_total_members()
+    return render("home.html",
+        request=request, user=user,
+        bot_ready=bot_is_ready(),
+        guild_count=guild_count,
+        member_count=member_count,
+        bot_latency=bot_latency(),
+        bot_user=bot_user(),
+        bot_available=bot_available,
+    )
 
 @app.get("/health")
 async def health():
     return {
         "status": "ok",
-        "timestamp": datetime.utcnow().isoformat(),
-        "guilds": len(bot.guilds) if bot.is_ready() else 0,
-        "bot_ready": bot.is_ready(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "guilds": len(bot_guilds()) if bot_is_ready() else 0,
+        "bot_ready": bot_is_ready(),
+        "bot_available": bot_available,
+        "latency_ms": bot_latency(),
     }
+
+@app.get("/api/status")
+async def api_status():
+    return JSONResponse({
+        "ready": bot_is_ready(),
+        "available": bot_available,
+        "guilds": len(bot_guilds()),
+        "latency": bot_latency(),
+        "members": bot_total_members(),
+    })
 
 @app.get("/commands", response_class=HTMLResponse)
 async def commands_page(request: Request):
     user = get_user(request)
-    return render("commands.html", request=request, user=user)
+    return render("commands.html", request=request, user=user,
+        bot_ready=bot_is_ready(), bot_latency=bot_latency(),
+        bot_user=bot_user(), bot_available=bot_available)
 
 @app.get("/login")
 async def login():
@@ -108,21 +172,31 @@ async def dashboard(request: Request):
         perms = int(g.get("permissions", 0))
         if perms & 0x20:
             admin_guilds.append(g)
-    bot_guild_ids = set(str(g.id) for g in bot.guilds)
-    return render("dashboard.html", request=request, user=user, admin_guilds=admin_guilds, bot_guild_ids=bot_guild_ids, client_id=CLIENT_ID)
+    bot_guild_ids = set(str(g.id) for g in bot_guilds())
+    return render("dashboard.html", request=request, user=user,
+        admin_guilds=admin_guilds, bot_guild_ids=bot_guild_ids,
+        client_id=CLIENT_ID, bot_ready=bot_is_ready(),
+        bot_available=bot_available, bot_latency=bot_latency(),
+        bot_user=bot_user())
 
 @app.get("/dashboard/{guild_id}", response_class=HTMLResponse)
 async def guild_settings(request: Request, guild_id: str):
     user = get_user(request)
     if not user:
         return RedirectResponse("/login")
-    guild = bot.get_guild(int(guild_id))
+    guild = bot_get_guild(guild_id)
     if not guild:
-        return HTMLResponse("Bot not in this server", status_code=404)
+        return render("guild.html", request=request, user=user,
+            guild=None, settings=None, missing=True,
+            bot_ready=bot_is_ready(), bot_latency=bot_latency(),
+            bot_user=bot_user(), bot_available=bot_available)
     settings = await database.get_guild(guild_id)
     if not settings:
         settings = {"prefix": "!", "welcome_enabled": 0, "welcome_channel": "", "welcome_message": "", "mod_log_channel": "", "tiktok_url": ""}
-    return render("guild.html", request=request, user=user, guild=guild, settings=settings)
+    return render("guild.html", request=request, user=user,
+        guild=guild, settings=settings, missing=False,
+        bot_ready=bot_is_ready(), bot_latency=bot_latency(),
+        bot_user=bot_user(), bot_available=bot_available)
 
 @app.post("/dashboard/{guild_id}")
 async def save_settings(request: Request, guild_id: str):
@@ -152,22 +226,28 @@ async def guild_moderation(request: Request, guild_id: str):
     user = get_user(request)
     if not user:
         return RedirectResponse("/login")
-    guild = bot.get_guild(int(guild_id))
+    guild = bot_get_guild(guild_id)
     if not guild:
         return HTMLResponse("Bot not in this server", status_code=404)
     warns = await database.get_warnings(guild_id)
-    return render("moderation.html", request=request, user=user, guild=guild, warnings=warns)
+    return render("moderation.html", request=request, user=user,
+        guild=guild, warnings=warns,
+        bot_ready=bot_is_ready(), bot_latency=bot_latency(),
+        bot_user=bot_user(), bot_available=bot_available)
 
 @app.get("/dashboard/{guild_id}/commands", response_class=HTMLResponse)
 async def guild_commands(request: Request, guild_id: str):
     user = get_user(request)
     if not user:
         return RedirectResponse("/login")
-    guild = bot.get_guild(int(guild_id))
+    guild = bot_get_guild(guild_id)
     if not guild:
         return HTMLResponse("Bot not in this server", status_code=404)
     cmds = await database.get_commands(guild_id)
-    return render("commands.html", request=request, user=user, guild=guild, commands=cmds)
+    return render("guild_commands.html", request=request, user=user,
+        guild=guild, commands=cmds,
+        bot_ready=bot_is_ready(), bot_latency=bot_latency(),
+        bot_user=bot_user(), bot_available=bot_available)
 
 @app.post("/dashboard/{guild_id}/commands/add")
 async def add_command(request: Request, guild_id: str):
@@ -194,6 +274,19 @@ async def logout(response: Response):
     response = RedirectResponse("/")
     response.delete_cookie("session")
     return response
+
+@app.get("/stats", response_class=HTMLResponse)
+async def stats_page(request: Request):
+    user = get_user(request)
+    guild_count = len(bot_guilds())
+    member_count = bot_total_members()
+    guilds_list = bot_guilds()
+    top_guilds = sorted(guilds_list, key=lambda g: g.member_count if hasattr(g, 'member_count') else 0, reverse=True)[:10]
+    return render("stats.html", request=request, user=user,
+        guild_count=guild_count, member_count=member_count,
+        top_guilds=top_guilds, bot_ready=bot_is_ready(),
+        bot_latency=bot_latency(), bot_user=bot_user(),
+        bot_available=bot_available)
 
 def get_user(request: Request):
     session_token = request.cookies.get("session")

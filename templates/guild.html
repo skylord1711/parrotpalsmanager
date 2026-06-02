@@ -1,9 +1,19 @@
 {% extends "base.html" %}
-{% block title %}{{ guild.name }} Settings{% endblock %}
+{% block title %}{{ guild.name if guild else 'Server' }} Settings{% endblock %}
 {% block content %}
 <nav class="breadcrumb">
-  <a href="/dashboard">Servers</a> <span class="sep">/</span> {{ guild.name }}
+  <a href="/dashboard">Servers</a> <span class="sep">›</span>
+  {% if guild %}{{ guild.name }}{% else %}Unknown Server{% endif %}
 </nav>
+
+{% if missing or not guild %}
+<div class="card error-card">
+  <div class="error-icon">🤖</div>
+  <h3>Bot Not in This Server</h3>
+  <p>The bot hasn't been added to this server yet, or it was removed.</p>
+  <a href="https://discord.com/api/oauth2/authorize?client_id={{ client_id }}&permissions=8&scope=bot%20applications.commands" class="btn" target="_blank" style="margin-top:16px;">Invite Bot</a>
+</div>
+{% else %}
 
 <div class="server-header">
   {% if guild.icon %}
@@ -13,19 +23,18 @@
   {% endif %}
   <div>
     <h2>{{ guild.name }}</h2>
-    <span style="color:var(--text-muted);font-size:0.85rem;">Server settings</span>
+    <span style="color:var(--text-muted);font-size:0.85rem;">
+      Server settings
+      {% if guild.member_count %} · {{ guild.member_count }} members{% endif %}
+    </span>
   </div>
 </div>
 
 <div class="tabs">
-  <a href="/dashboard/{{ guild.id }}" class="tab active">Settings</a>
-  <a href="/dashboard/{{ guild.id }}/moderation" class="tab">Moderation Log</a>
-  <a href="/dashboard/{{ guild.id }}/commands" class="tab">Custom Commands</a>
+  <a href="/dashboard/{{ guild.id }}" class="tab active">⚙️ Settings</a>
+  <a href="/dashboard/{{ guild.id }}/moderation" class="tab">📋 Moderation Log</a>
+  <a href="/dashboard/{{ guild.id }}/commands" class="tab">💬 Custom Commands</a>
 </div>
-
-{% if request.query_params.get('saved') %}
-  <div class="alert alert-success">Settings saved successfully!</div>
-{% endif %}
 
 <div class="card">
   <h3>General Settings</h3>
@@ -56,7 +65,7 @@
     <div class="form-group">
       <label>Welcome Message</label>
       <textarea name="welcome_message" rows="3" placeholder="Welcome {user} to {server}!">{{ settings.welcome_message or '' }}</textarea>
-      <small><code>{user}</code> = @mention &bull; <code>{server}</code> = server name</small>
+      <small><code>{user}</code> = @mention · <code>{server}</code> = server name</small>
     </div>
     <hr>
     <h4>Moderation Logs</h4>
@@ -70,16 +79,17 @@
   <hr>
   <h4>Danger Zone</h4>
   <p style="color:var(--text-muted);font-size:0.88rem;margin-bottom:16px;">These actions are irreversible — use caution.</p>
-  {% if settings.welcome_enabled or settings.mod_log_channel or settings.welcome_channel %}
-    <form method="POST" action="/dashboard/{{ guild.id }}">
+  {% if settings.welcome_enabled or settings.mod_log_channel or settings.welcome_channel or settings.tiktok_url %}
+    <form method="POST" action="/dashboard/{{ guild.id }}" onsubmit="return confirm('Reset all settings for this server?')">
       <input type="hidden" name="prefix" value="{{ settings.prefix }}">
       <input type="hidden" name="welcome_enabled" value="">
       <input type="hidden" name="welcome_channel" value="">
       <input type="hidden" name="welcome_message" value="">
       <input type="hidden" name="mod_log_channel" value="">
       <input type="hidden" name="tiktok_url" value="">
-      <button class="btn btn-danger btn-sm" onclick="return confirm('Reset all settings for this server?')">Reset All Settings</button>
+      <button class="btn btn-danger btn-sm">Reset All Settings</button>
     </form>
   {% endif %}
 </div>
+{% endif %}
 {% endblock %}

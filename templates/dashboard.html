@@ -1,8 +1,42 @@
 {% extends "base.html" %}
 {% block title %}Dashboard{% endblock %}
 {% block content %}
-<h2 style="margin-bottom:8px;">Your Servers</h2>
-<p style="color:var(--text-muted);margin-bottom:24px;">Select a server to configure. Only servers where you're an admin are shown.</p>
+<div class="page-header">
+  <div>
+    <h2>Your Servers</h2>
+    <p class="page-subtitle">Select a server to configure. Only servers where you're an admin are shown.</p>
+  </div>
+  <div class="header-actions">
+    <a href="https://discord.com/api/oauth2/authorize?client_id={{ client_id }}&permissions=8&scope=bot%20applications.commands" class="btn btn-outline" target="_blank">+ Invite Bot</a>
+  </div>
+</div>
+
+{% if bot_available and bot_ready %}
+<div class="stats-row">
+  <div class="stat-card">
+    <div class="stat-icon">🖥️</div>
+    <div class="stat-body">
+      <span class="stat-value">{{ admin_guilds|length }}</span>
+      <span class="stat-label">Your Admin Servers</span>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon">🤖</div>
+    <div class="stat-body">
+      <span class="stat-value">{{ bot_guild_ids|length }}</span>
+      <span class="stat-label">Bot is in</span>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon">⚡</div>
+    <div class="stat-body">
+      <span class="stat-value">{{ bot_latency }}ms</span>
+      <span class="stat-label">Bot Latency</span>
+    </div>
+  </div>
+</div>
+{% endif %}
+
 <div class="server-list">
   {% for g in admin_guilds %}
     <div class="server-card {% if g.id not in bot_guild_ids %}inactive{% endif %}">
@@ -15,7 +49,7 @@
         <div>
           <h3>{{ g.name }}</h3>
           {% if g.id in bot_guild_ids %}
-            <span class="badge badge-green">Configure</span>
+            <span class="badge badge-green">● Configure</span>
           {% else %}
             <span class="badge badge-red">Bot not in server</span>
           {% endif %}
@@ -27,6 +61,28 @@
         <a href="https://discord.com/api/oauth2/authorize?client_id={{ client_id }}&permissions=8&scope=bot%20applications.commands" class="btn btn-outline" target="_blank">Invite Bot</a>
       {% endif %}
     </div>
+  {% else %}
+    <div class="empty-state">
+      <div class="empty-icon">📭</div>
+      <h3>No Admin Servers</h3>
+      <p>You don't have admin access on any Discord servers. Join or create a server first!</p>
+    </div>
   {% endfor %}
 </div>
+
+{% if admin_guilds %}
+<div class="search-box">
+  <input type="text" id="serverSearch" placeholder="Search servers..." class="search-input" oninput="filterServers(this.value)">
+</div>
+<script>
+  function filterServers(q) {
+    var cards = document.querySelectorAll('.server-card');
+    q = q.toLowerCase();
+    cards.forEach(function(c){
+      var name = c.querySelector('h3').textContent.toLowerCase();
+      c.style.display = name.includes(q) ? '' : 'none';
+    });
+  }
+</script>
+{% endif %}
 {% endblock %}
