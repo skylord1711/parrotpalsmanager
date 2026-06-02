@@ -91,4 +91,58 @@
     <div class="cmd-desc">List all available slash commands in Discord with a quick overview.</div>
   </div>
 </div>
+
+<h3 style="margin-top:32px;">🎫 Ticket Commands</h3>
+<div class="cmd-grid">
+  <div class="cmd-card">
+    <span class="cmd-category cat-config">🎫 Tickets</span>
+    <h4><code>/ticket-panel</code></h4>
+    <div class="cmd-desc">Send the ticket creation panel (buttons/select menu) to the current channel. Requires <strong>Administrator</strong>.</div>
+  </div>
+  <div class="cmd-card">
+    <span class="cmd-category cat-config">🎫 Tickets</span>
+    <h4><code>/close</code></h4>
+    <div class="cmd-desc">Close the current ticket channel. Generates a transcript and logs the action.</div>
+  </div>
+  <div class="cmd-card">
+    <span class="cmd-category cat-config">🎫 Tickets</span>
+    <h4><code>/claim</code></h4>
+    <div class="cmd-desc">Claim a ticket to show you're handling it. Only available to support roles.</div>
+  </div>
+  <div class="cmd-card">
+    <span class="cmd-category cat-config">🎫 Tickets</span>
+    <h4><code>/unclaim</code></h4>
+    <div class="cmd-desc">Release your claim on a ticket so another staff member can handle it.</div>
+  </div>
+  <div class="cmd-card">
+    <span class="cmd-category cat-config">🎫 Tickets</span>
+    <h4><code>/add</code></h4>
+    <div class="cmd-desc">Add a user to the current ticket channel so they can view and participate.</div>
+    <div class="cmd-details"><span>Usage: <code>/add @user</code></span></div>
+  </div>
+  <div class="cmd-card">
+    <span class="cmd-category cat-config">🎫 Tickets</span>
+    <h4><code>/remove</code></h4>
+    <div class="cmd-desc">Remove a user from the current ticket channel. Requires support role.</div>
+    <div class="cmd-details"><span>Usage: <code>/remove @user</code></span></div>
+  </div>
+  <div class="cmd-card">
+    <span class="cmd-category cat-config">🎫 Tickets</span>
+    <h4><code>/rename</code></h4>
+    <div class="cmd-desc">Rename the current ticket channel.</div>
+    <div class="cmd-details"><span>Usage: <code>/rename new-name</code></span></div>
+  </div>
+  <div class="cmd-card">
+    <span class="cmd-category cat-config">🎫 Tickets</span>
+    <h4><code>/blacklist</code></h4>
+    <div class="cmd-desc">Blacklist a user from creating tickets. Requires <strong>Administrator</strong>.</div>
+    <div class="cmd-details"><span>Usage: <code>/blacklist @user [reason]</code></span></div>
+  </div>
+  <div class="cmd-card">
+    <span class="cmd-category cat-config">🎫 Tickets</span>
+    <h4><code>/unblacklist</code></h4>
+    <div class="cmd-desc">Remove a user from the ticket blacklist. Requires <strong>Administrator</strong>.</div>
+    <div class="cmd-details"><span>Usage: <code>/unblacklist @user</code></span></div>
+  </div>
+</div>
 {% endblock %}

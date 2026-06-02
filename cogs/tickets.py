@@ -46,7 +46,10 @@ class TicketSystem(commands.Cog):
         self.bot = bot
 
     async def cog_load(self):
-        await self._register_panels()
+        try:
+            await self._register_panels()
+        except Exception as e:
+            print(f"TicketSystem cog_load error: {e}")
 
     async def _respond(self, ctx_or_interaction, content=None, embed=None, view=None, ephemeral=False):
         if isinstance(ctx_or_interaction, discord.Interaction):
@@ -194,124 +197,7 @@ class TicketSystem(commands.Cog):
         self.bot.add_view(view, message_id=msg.id)
         await self._respond(ctx_or_interaction, f"Panel sent to {target.mention}", ephemeral=True)
 
-    # ─── Commands ───────────────────────────────────────────
-
-    @commands.has_permissions(administrator=True)
-    @commands.hybrid_command(name="ticket-panel", description="Send the ticket creation panel to current channel")
-    async def ticket_panel(self, ctx: commands.Context):
-        await self._send_panel(ctx)
-
-    @commands.has_permissions(administrator=True)
-    @commands.hybrid_command(name="ticket-panel-to", description="Send ticket panel to a specific channel")
-    async def ticket_panel_to(self, ctx: commands.Context, channel: discord.TextChannel):
-        await self._send_panel(ctx, channel)
-
-    @commands.hybrid_command(name="close", description="Close this ticket channel")
-    async def close(self, ctx: commands.Context):
-        guild_id = str(ctx.guild.id)
-        cfg = await self._get_or_create_config(guild_id)
-        ticket = await database.get_active_ticket(str(ctx.channel.id))
-        if not ticket or ticket["status"] != "open":
-            await ctx.send("This is not an open ticket channel.", ephemeral=True)
-            return
-        await self._do_close(ctx, ticket, cfg)
-
-    @commands.hybrid_command(name="claim", description="Claim this ticket")
-    async def claim(self, ctx: commands.Context):
-        guild_id = str(ctx.guild.id)
-        cfg = await self._get_or_create_config(guild_id)
-        ticket = await database.get_active_ticket(str(ctx.channel.id))
-        if not ticket or ticket["status"] != "open":
-            await ctx.send("This is not an open ticket channel.", ephemeral=True)
-            return
-        await self._do_claim(ctx, ticket, cfg)
-
-    @commands.hybrid_command(name="unclaim", description="Unclaim this ticket")
-    async def unclaim(self, ctx: commands.Context):
-        guild_id = str(ctx.guild.id)
-        cfg = await self._get_or_create_config(guild_id)
-        ticket = await database.get_active_ticket(str(ctx.channel.id))
-        if not ticket or ticket["status"] != "open":
-            await ctx.send("This is not an open ticket channel.", ephemeral=True)
-            return
-        await self._do_unclaim(ctx, ticket, cfg)
-
-    @commands.hybrid_command(name="add", description="Add a user to this ticket")
-    async def add(self, ctx: commands.Context, member: discord.Member):
-        guild_id = str(ctx.guild.id)
-        cfg = await self._get_or_create_config(guild_id)
-        ticket = await database.get_active_ticket(str(ctx.channel.id))
-        if not ticket or ticket["status"] != "open":
-            await ctx.send("This is not an open ticket channel.", ephemeral=True)
-            return
-        if not self._has_support_role(ctx.author, cfg) and str(ctx.author.id) != ticket["user_id"]:
-            await ctx.send("You don't have permission to add users.", ephemeral=True)
-            return
-        await ctx.channel.set_permissions(member, view_channel=True, send_messages=True, read_message_history=True)
-        embed = discord.Embed(title="User Added", color=discord.Color.green())
-        embed.add_field(name="Added by", value=ctx.author.mention)
-        embed.add_field(name="User", value=member.mention)
-        await ctx.send(embed=embed)
-        log_embed = discord.Embed(title="User Added to Ticket", color=discord.Color.green())
-        log_embed.add_field(name="Ticket", value=f"#{ctx.channel.name} ({ticket['ticket_type']} #{ticket['ticket_number']})")
-        log_embed.add_field(name="Added by", value=ctx.author.mention)
-        log_embed.add_field(name="User", value=member.mention)
-        await self._send_log(ctx.guild, cfg, log_embed)
-
-    @commands.hybrid_command(name="remove", description="Remove a user from this ticket")
-    async def remove(self, ctx: commands.Context, member: discord.Member):
-        guild_id = str(ctx.guild.id)
-        cfg = await self._get_or_create_config(guild_id)
-        ticket = await database.get_active_ticket(str(ctx.channel.id))
-        if not ticket or ticket["status"] != "open":
-            await ctx.send("This is not an open ticket channel.", ephemeral=True)
-            return
-        if not self._has_support_role(ctx.author, cfg):
-            await ctx.send("You don't have permission to remove users.", ephemeral=True)
-            return
-        await ctx.channel.set_permissions(member, overwrite=None)
-        embed = discord.Embed(title="User Removed", color=discord.Color.orange())
-        embed.add_field(name="Removed by", value=ctx.author.mention)
-        embed.add_field(name="User", value=member.mention)
-        await ctx.send(embed=embed)
-        log_embed = discord.Embed(title="User Removed from Ticket", color=discord.Color.orange())
-        log_embed.add_field(name="Ticket", value=f"#{ctx.channel.name} ({ticket['ticket_type']} #{ticket['ticket_number']})")
-        log_embed.add_field(name="Removed by", value=ctx.author.mention)
-        log_embed.add_field(name="User", value=member.mention)
-        await self._send_log(ctx.guild, cfg, log_embed)
-
-    @commands.hybrid_command(name="rename", description="Rename this ticket channel")
-    async def rename(self, ctx: commands.Context, *, name: str):
-        guild_id = str(ctx.guild.id)
-        cfg = await self._get_or_create_config(guild_id)
-        ticket = await database.get_active_ticket(str(ctx.channel.id))
-        if not ticket or ticket["status"] != "open":
-            await ctx.send("This is not an open ticket channel.", ephemeral=True)
-            return
-        if not self._has_support_role(ctx.author, cfg) and str(ctx.author.id) != ticket["user_id"]:
-            await ctx.send("You don't have permission to rename.", ephemeral=True)
-            return
-        clean = name.lower().replace(" ", "-")[:95]
-        await ctx.channel.edit(name=clean)
-        await ctx.send(f"Channel renamed to #{clean}")
-        log_embed = discord.Embed(title="Ticket Renamed", color=discord.Color.blue())
-        log_embed.add_field(name="Ticket", value=f"#{ctx.channel.name}")
-        log_embed.add_field(name="Renamed by", value=ctx.author.mention)
-        await self._send_log(ctx.guild, cfg, log_embed)
-
-    @commands.has_permissions(administrator=True)
-    @commands.hybrid_command(name="blacklist", description="Blacklist a user from creating tickets")
-    async def blacklist(self, ctx: commands.Context, member: discord.Member, *, reason: str = ""):
-        guild_id = str(ctx.guild.id)
-        await database.add_blacklist(guild_id, str(member.id), "user", reason)
-        await ctx.send(f"Blacklisted {member.mention} from creating tickets.", ephemeral=True)
-
-    @commands.has_permissions(administrator=True)
-    @commands.hybrid_command(name="unblacklist", description="Remove a user from ticket blacklist")
-    async def unblacklist(self, ctx: commands.Context, member: discord.Member):
-        guild_id = str(ctx.guild.id)
-        await database.remove_blacklist(guild_id, str(member.id))
-        await ctx.send(f"Unblacklisted {member.mention}.", ephemeral=True)
+    # ─── Commands (defined in bot.py via @bot.tree.command) ──
 
     # ─── Interaction Listener ───────────────────────────────
 

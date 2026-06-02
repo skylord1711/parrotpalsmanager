@@ -189,6 +189,12 @@ async def cmdlist(interaction: discord.Interaction):
     embed.add_field(name="/clear", value="Delete messages", inline=True)
     embed.add_field(name="/slowmode", value="Set slowmode", inline=True)
     embed.add_field(name="/timeout", value="Timeout member", inline=True)
+    embed.add_field(name="/ticket-panel", value="Create ticket panel", inline=True)
+    embed.add_field(name="/close", value="Close ticket", inline=True)
+    embed.add_field(name="/claim", value="Claim ticket", inline=True)
+    embed.add_field(name="/add", value="Add user to ticket", inline=True)
+    embed.add_field(name="/remove", value="Remove user from ticket", inline=True)
+    embed.add_field(name="/rename", value="Rename ticket channel", inline=True)
     embed.add_field(name="/commands", value="This list", inline=True)
     await interaction.response.send_message(embed=embed)
 
@@ -197,3 +203,157 @@ async def sync(ctx):
     if ctx.author.id == bot.owner_id:
         synced = await bot.tree.sync()
         await ctx.send(f"Synced {len(synced)} commands")
+
+# ─── Ticket Commands ──────────────────────────────────────────
+
+def _cog():
+    return bot.get_cog("TicketSystem")
+
+@bot.tree.command(name="ticket-panel", description="Send the ticket creation panel to current channel")
+@discord.app_commands.default_permissions(administrator=True)
+async def ticket_panel(interaction: discord.Interaction):
+    cog = _cog()
+    if not cog:
+        await interaction.response.send_message("Ticket system not loaded.", ephemeral=True)
+        return
+    await cog._send_panel(interaction)
+
+@bot.tree.command(name="ticket-panel-to", description="Send ticket panel to a specific channel")
+@discord.app_commands.default_permissions(administrator=True)
+async def ticket_panel_to(interaction: discord.Interaction, channel: discord.TextChannel):
+    cog = _cog()
+    if not cog:
+        await interaction.response.send_message("Ticket system not loaded.", ephemeral=True)
+        return
+    await cog._send_panel(interaction, channel)
+
+@bot.tree.command(name="close", description="Close this ticket channel")
+async def close(interaction: discord.Interaction):
+    cog = _cog()
+    if not cog:
+        await interaction.response.send_message("Ticket system not loaded.", ephemeral=True)
+        return
+    guild_id = str(interaction.guild_id)
+    cfg = await cog._get_or_create_config(guild_id)
+    ticket = await database.get_active_ticket(str(interaction.channel_id))
+    if not ticket or ticket["status"] != "open":
+        await interaction.response.send_message("This is not an open ticket channel.", ephemeral=True)
+        return
+    await cog._do_close(interaction, ticket, cfg)
+
+@bot.tree.command(name="claim", description="Claim this ticket")
+async def claim(interaction: discord.Interaction):
+    cog = _cog()
+    if not cog:
+        await interaction.response.send_message("Ticket system not loaded.", ephemeral=True)
+        return
+    guild_id = str(interaction.guild_id)
+    cfg = await cog._get_or_create_config(guild_id)
+    ticket = await database.get_active_ticket(str(interaction.channel_id))
+    if not ticket or ticket["status"] != "open":
+        await interaction.response.send_message("This is not an open ticket channel.", ephemeral=True)
+        return
+    await cog._do_claim(interaction, ticket, cfg)
+
+@bot.tree.command(name="unclaim", description="Unclaim this ticket")
+async def unclaim(interaction: discord.Interaction):
+    cog = _cog()
+    if not cog:
+        await interaction.response.send_message("Ticket system not loaded.", ephemeral=True)
+        return
+    guild_id = str(interaction.guild_id)
+    cfg = await cog._get_or_create_config(guild_id)
+    ticket = await database.get_active_ticket(str(interaction.channel_id))
+    if not ticket or ticket["status"] != "open":
+        await interaction.response.send_message("This is not an open ticket channel.", ephemeral=True)
+        return
+    await cog._do_unclaim(interaction, ticket, cfg)
+
+@bot.tree.command(name="add", description="Add a user to this ticket")
+async def add(interaction: discord.Interaction, member: discord.Member):
+    cog = _cog()
+    if not cog:
+        await interaction.response.send_message("Ticket system not loaded.", ephemeral=True)
+        return
+    guild_id = str(interaction.guild_id)
+    cfg = await cog._get_or_create_config(guild_id)
+    ticket = await database.get_active_ticket(str(interaction.channel_id))
+    if not ticket or ticket["status"] != "open":
+        await interaction.response.send_message("This is not an open ticket channel.", ephemeral=True)
+        return
+    if not cog._has_support_role(interaction.user, cfg) and str(interaction.user.id) != ticket["user_id"]:
+        await interaction.response.send_message("You don't have permission to add users.", ephemeral=True)
+        return
+    await interaction.channel.set_permissions(member, view_channel=True, send_messages=True, read_message_history=True)
+    embed = discord.Embed(title="User Added", color=discord.Color.green())
+    embed.add_field(name="Added by", value=interaction.user.mention)
+    embed.add_field(name="User", value=member.mention)
+    await interaction.response.send_message(embed=embed)
+    log_embed = discord.Embed(title="User Added to Ticket", color=discord.Color.green())
+    log_embed.add_field(name="Ticket", value=f"#{interaction.channel.name} ({ticket['ticket_type']} #{ticket['ticket_number']})")
+    log_embed.add_field(name="Added by", value=interaction.user.mention)
+    log_embed.add_field(name="User", value=member.mention)
+    await cog._send_log(interaction.guild, cfg, log_embed)
+
+@bot.tree.command(name="remove", description="Remove a user from this ticket")
+async def remove(interaction: discord.Interaction, member: discord.Member):
+    cog = _cog()
+    if not cog:
+        await interaction.response.send_message("Ticket system not loaded.", ephemeral=True)
+        return
+    guild_id = str(interaction.guild_id)
+    cfg = await cog._get_or_create_config(guild_id)
+    ticket = await database.get_active_ticket(str(interaction.channel_id))
+    if not ticket or ticket["status"] != "open":
+        await interaction.response.send_message("This is not an open ticket channel.", ephemeral=True)
+        return
+    if not cog._has_support_role(interaction.user, cfg):
+        await interaction.response.send_message("You don't have permission to remove users.", ephemeral=True)
+        return
+    await interaction.channel.set_permissions(member, overwrite=None)
+    embed = discord.Embed(title="User Removed", color=discord.Color.orange())
+    embed.add_field(name="Removed by", value=interaction.user.mention)
+    embed.add_field(name="User", value=member.mention)
+    await interaction.response.send_message(embed=embed)
+    log_embed = discord.Embed(title="User Removed from Ticket", color=discord.Color.orange())
+    log_embed.add_field(name="Ticket", value=f"#{interaction.channel.name} ({ticket['ticket_type']} #{ticket['ticket_number']})")
+    log_embed.add_field(name="Removed by", value=interaction.user.mention)
+    log_embed.add_field(name="User", value=member.mention)
+    await cog._send_log(interaction.guild, cfg, log_embed)
+
+@bot.tree.command(name="rename", description="Rename this ticket channel")
+async def rename(interaction: discord.Interaction, name: str):
+    cog = _cog()
+    if not cog:
+        await interaction.response.send_message("Ticket system not loaded.", ephemeral=True)
+        return
+    guild_id = str(interaction.guild_id)
+    cfg = await cog._get_or_create_config(guild_id)
+    ticket = await database.get_active_ticket(str(interaction.channel_id))
+    if not ticket or ticket["status"] != "open":
+        await interaction.response.send_message("This is not an open ticket channel.", ephemeral=True)
+        return
+    if not cog._has_support_role(interaction.user, cfg) and str(interaction.user.id) != ticket["user_id"]:
+        await interaction.response.send_message("You don't have permission to rename.", ephemeral=True)
+        return
+    clean = name.lower().replace(" ", "-")[:95]
+    await interaction.channel.edit(name=clean)
+    await interaction.response.send_message(f"Channel renamed to #{clean}")
+    log_embed = discord.Embed(title="Ticket Renamed", color=discord.Color.blue())
+    log_embed.add_field(name="Ticket", value=f"#{interaction.channel.name}")
+    log_embed.add_field(name="Renamed by", value=interaction.user.mention)
+    await cog._send_log(interaction.guild, cfg, log_embed)
+
+@bot.tree.command(name="blacklist", description="Blacklist a user from creating tickets")
+@discord.app_commands.default_permissions(administrator=True)
+async def blacklist_ticket(interaction: discord.Interaction, member: discord.Member, reason: str = ""):
+    guild_id = str(interaction.guild_id)
+    await database.add_blacklist(guild_id, str(member.id), "user", reason)
+    await interaction.response.send_message(f"Blacklisted {member.mention} from creating tickets.", ephemeral=True)
+
+@bot.tree.command(name="unblacklist", description="Remove a user from ticket blacklist")
+@discord.app_commands.default_permissions(administrator=True)
+async def unblacklist_ticket(interaction: discord.Interaction, member: discord.Member):
+    guild_id = str(interaction.guild_id)
+    await database.remove_blacklist(guild_id, str(member.id))
+    await interaction.response.send_message(f"Unblacklisted {member.mention}.", ephemeral=True)
