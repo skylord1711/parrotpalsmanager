@@ -6,6 +6,10 @@
       "config": {
         "maxLambdaSize": "50mb"
       }
+    },
+    {
+      "src": "static/**",
+      "use": "@vercel/static"
     }
   ],
   "routes": [
