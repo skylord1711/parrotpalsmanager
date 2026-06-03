@@ -38,9 +38,16 @@ async def on_ready():
             await database.set_guild(str(guild.id), prefix="!", welcome_enabled=0)
     try:
         synced = await bot.tree.sync()
-        print(f"Synced {len(synced)} slash commands")
+        print(f"Global sync: {len(synced)} commands")
     except Exception as e:
-        print(f"Sync error: {e}")
+        print(f"Global sync error: {e}")
+    for guild in bot.guilds:
+        try:
+            bot.tree.copy_global_to(guild=discord.Object(id=guild.id))
+            await bot.tree.sync(guild=discord.Object(id=guild.id))
+            print(f"Guild sync: {guild.name} ({guild.id})")
+        except Exception as e:
+            print(f"Guild sync error for {guild.id}: {e}")
 
 @bot.event
 async def on_member_join(member):
