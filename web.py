@@ -146,29 +146,40 @@ async def debug():
     try:
         b = get_bot()
         if not b:
-            return {"error": "bot not available"}
+            return {"error": "bot no bot"}
         ready = False
-        exts = []
-        cogs = []
         try:
             ready = b.is_ready()
         except:
             pass
+        exts = []
         try:
             exts = list(b.extensions.keys())
         except:
             pass
+        cogs = []
         try:
             cogs = list(b.cogs.keys())
+        except:
+            pass
+        tree_attrs = []
+        try:
+            tree_attrs = [x for x in dir(b.tree) if not x.startswith('__')]
         except:
             pass
         cmds = []
         try:
             for cmd in b.tree._commands.values():
                 cmds.append(getattr(cmd, 'name', str(cmd)))
-        except:
-            pass
-        return {"ready": ready, "extensions": exts, "cogs": cogs, "tree_commands": cmds}
+        except Exception as ex:
+            cmds.append(f"err:{ex}")
+        try:
+            cmds2 = []
+            for cmd in b.tree.get_commands():
+                cmds2.append(cmd.name)
+        except Exception as ex:
+            cmds2 = [f"err:{ex}"]
+        return {"ready": ready, "extensions": exts, "cogs": cogs, "tree_attrs": tree_attrs, "tree_commands": cmds, "get_commands": cmds2}
     except Exception as e:
         return {"error": str(e)}
 
